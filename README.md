@@ -1,141 +1,133 @@
-# QR Scanner Web Application
 
-This project is a Flask-based web application designed to scan QR codes, barcodes, and text using a camera. The scanned data is stored in an Excel file, allowing for easy management, updates, and exports. The application is optimized for mobile devices and supports HTTPS.
+# QR Scanner App
+
+This is a Flask-based QR Scanner application designed for mobile devices. It scans QR codes, barcodes, and alphanumeric text and stores the data in an Excel file. The app supports adding, updating, and deleting entries, with HTTPS support for secure access.
 
 ---
 
 ## Features
 
-1. **Scan Support**:
-   - QR Codes
-   - Barcodes
-   - Alphanumeric text using PaddleOCR
+1. **QR Code, Barcode, and Text Scanning**
+   - Supports scanning of QR codes, barcodes, and single-line alphanumeric text.
+   - Automatically categorizes scanned input as 'QR', 'Barcode', or 'Text'.
 
-2. **Data Management**:
-   - Stores scanned data in an Excel file with columns:
-     - `Serial Number`
-     - `Code`
-     - `Quantity`
-     - `Type` (QR, Barcode, or Text)
-   - Automatically assigns a serial number to new entries.
+2. **Text Highlighting and Selection**
+   - Scanned text is highlighted in green.
+   - Allows manual selection of the scanned text.
 
-3. **Update and Delete**:
-   - If a scanned code matches an existing entry, the app prompts the user to update the entry.
-   - Entries can also be deleted as needed.
+3. **Excel Integration**
+   - Stores scanned data in an Excel file with the following columns:
+     - Serial Number (SNO)
+     - Code
+     - Quantity
+     - Type (QR, Barcode, or Text)
 
-4. **Mobile Optimization**:
-   - Responsive design for mobile devices.
-   - HTTPS support for secure connections.
+4. **Data Management**
+   - Prompts user to update an entry if a duplicate is found.
+   - Allows manual input of quantity for new entries.
+   - Features delete and update functionality.
 
-5. **Excel Export**:
-   - Users can download the scanned data in CSV format.
+5. **Mobile-Friendly Interface**
+   - Optimized for mobile devices.
+   - Includes a camera boundary for focusing on single-line text.
 
-6. **Camera Features**:
-   - Green highlight over detected text.
-   - Select text within the camera boundary.
+6. **Secure Access**
+   - Runs over HTTPS with SSL certificate support.
+
+7. **File Download**
+   - Allows downloading of the Excel file as a CSV from the index page.
+
+---
+
+## Prerequisites
+
+1. **Python Libraries**
+   - Flask
+   - OpenCV
+   - pandas
+   - Tesseract OCR (`pytesseract`)
+
+2. **External Tools**
+   - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+
+3. **SSL Certificates**
+   - Place your SSL certificates in an `ssl` folder in the project directory.
 
 ---
 
 ## Installation
 
-### Prerequisites
-- Python 3.8+
-- pip (Python package manager)
-- Virtual environment tool (optional but recommended)
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-repo-name/qr-scanner-app.git
+   cd qr-scanner-app
+   ```
 
-### Dependencies
-Install the required dependencies using pip:
-```bash
-pip install -r requirements.txt
-```
-The `requirements.txt` file includes:
-- Flask
-- pandas
-- openpyxl
-- PaddleOCR
+2. Create a virtual environment and activate it:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate   # On Windows: venv\Scripts\activate
+   ```
 
-### SSL Setup
-Ensure your SSL certificates (`cert.pem` and `key.pem`) are placed in the `ssl/` folder.
+3. Install the dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### Excel File
-Create an initial Excel file (`data.xlsx`) with the following headers:
-- `Serial Number`
-- `Code`
-- `Quantity`
-- `Type`
+4. Install Tesseract OCR:
+   - Refer to the [Tesseract OCR installation guide](https://github.com/tesseract-ocr/tesseract).
+
+5. Place your SSL certificates in the `ssl` folder.
 
 ---
 
 ## Usage
 
-### Run the Application
-Start the Flask app locally:
-```bash
-python app.py
-```
+1. Run the Flask app:
+   ```bash
+   flask run --host=0.0.0.0 --port=5000
+   ```
 
-### Access the Application
-Open your browser and navigate to:
-```
-https://localhost:5000
-```
+2. Access the app on your mobile device using:
+   ```
+   https://<your-ip-address>:5000
+   ```
+
+3. Use the interface to scan QR codes, barcodes, or text.
+
+4. Download the stored data in CSV format from the index page.
 
 ---
 
 ## File Structure
+
 ```
-.
-├── app.py                # Main application file
-├── templates/            # HTML templates
-│   ├── index.html        # Main dashboard
-│   ├── update.html       # Update entry page
-├── static/               # Static assets (CSS, JS)
-├── ssl/                  # SSL certificates
-│   ├── cert.pem          # SSL certificate
-│   ├── key.pem           # SSL private key
-├── data.xlsx             # Excel file to store scanned data
-├── requirements.txt      # Python dependencies
-└── README.md             # Project documentation
+qr-scanner-app/
+├── app.py             # Main application file
+├── templates/         # HTML templates
+├── static/            # CSS and JavaScript files
+├── ssl/               # SSL certificates
+├── utils/             # Utility scripts and logs
+├── data/              # Directory for storing Excel files
+├── requirements.txt   # Python dependencies
+└── README.md          # Project documentation
 ```
 
 ---
 
-## API Endpoints
+## License
 
-### `/` (Index Page)
-- Displays the dashboard.
-- Allows downloading data in CSV format.
-
-### `/process_scan/<scan_type>` (POST)
-- Handles scanning for `qr`, `barcode`, or `text`.
-- Adds a new entry or redirects to update if the code already exists.
-
-### `/update/<code>`
-- Update an existing entry.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Configuration
+## Acknowledgments
 
-- **Excel File Location**: The file `data.xlsx` is the default storage for scanned data. Ensure it's in the root directory.
-- **HTTPS**: Place SSL certificates in the `ssl/` directory to enable secure connections.
+- [Flask](https://flask.palletsprojects.com/)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please follow these steps:
-1. Fork the repository.
-2. Create a new branch for your feature/bug fix.
-3. Commit your changes.
-4. Submit a pull request.
-
----
-
-
----
-
-## Acknowledgments
-- [Flask](https://flask.palletsprojects.com/) for the web framework.
-- [Pandas](https://pandas.pydata.org/) for data manipulation.
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) for text detection and recognition.
+Feel free to fork the repository and submit pull requests. For major changes, please open an issue first to discuss what you would like to change.
