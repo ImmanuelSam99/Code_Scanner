@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Management Dashboard</title>
+    <!-- Bootstrap 4 CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Code Database</h1>
+        
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {% for category, message in messages %}
+                        <strong>{{ message }}</strong>
+                    {% endfor %}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Download CSV button -->
+        <div class="text-center mb-4">
+            <a href="/download_csv" class="btn btn-info btn-lg mx-2">Download CSV</a>
+        </div>
+
+        <!-- Scan buttons -->
+        <div class="text-center mb-4">
+            <a href="/scan/qr" class="btn btn-primary btn-lg mx-2">Scan QR Code</a>
+            <a href="/scan/barcode" class="btn btn-success btn-lg mx-2">Scan Barcode</a>
+            <a href="/scan/text" class="btn btn-warning btn-lg mx-2">Scan Text</a>
+        </div>
+
+        <!-- Table to display records -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Serial Number</th>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record['Serial Number'] }}</td>
+                            <td>{{ record['Code'] }}</td>
+                            <td>{{ record['Type'] }}</td>
+                            <td>{{ record['Quantity'] }}</td>
+                            <td>
+                                <!-- Update button -->
+                                <a href="/update_page/{{ record['Code'] | urlencode }}" class="btn btn-warning btn-sm">Update</a>
+                                
+                                <!-- Delete button -->
+                                <form action="/delete/{{ record['Code'] | urlencode }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.5/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Barcode</title>
+</head>
+<body>
+    <h1>Scan Barcode</h1>
+    <div>
+        <video id="barcode-video" autoplay></video>
+        <p id="barcode-result">Scanned Barcode: <span id="scanned-barcode"></span></p>
+        <p id="scanner-status">Scanning...</p>
+    </div>
+
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script>
+        const codeReader = new ZXing.BrowserBarcodeReader();
+
+        const videoElement = document.getElementById('barcode-video');
+        const barcodeResult = document.getElementById('scanned-barcode');
+        const scannerStatus = document.getElementById('scanner-status');
+
+        codeReader.decodeFromVideoDevice(null, videoElement, async (result, err) => {
+            if (err) {
+                console.error(err);
+                scannerStatus.textContent = "Error accessing camera. Please ensure your camera is working.";
+                return;
+            }
+
+            if (result) {
+                const barcode = result.text.trim();
+                barcodeResult.textContent = barcode;
+
+                
+                const encodedBarcode = encodeURIComponent(barcode);
+
+                
+                const response = await fetch("/process_scan/barcode", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: barcode })
+                });
+
+                const res = await response.json();
+
+                if (res.status === "exists") {
+                    alert(`Barcode already exists. Quantity: ${res.quantity}. Redirecting to update page...`);
+                    window.location.href = `/update_page/${encodedBarcode}`;
+                } else if (res.status === "added") {
+                    alert("Barcode added successfully.");
+                    window.location.href = "/";
+                } else {
+                    alert("Error processing barcode.");
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,25 @@
+1. Open with VScode
+2. Create virtual environment
+
+in terminal 
+pip install virtualenv
+
+create new venv-
+python -m venv venv
+
+or if exists- 
+venv\Scripts\activate
+
+3. install dependencies
+
+in terminal
+
+pip install -r requirements.txt
+
+4. run on ip address
+
+in terminal 
+
+python app.py
+
+5. to run on phone type IP address on phone browser

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Code</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .form-container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        input[type="number"], button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .back-button {
+            background-color: #6c757d;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Update Code Quantity</h1>
+        <p><strong>Code:</strong> {{ qr_code }}</p>
+        <p><strong>Current Quantity:</strong> {{ quantity }}</p>
+        <p><strong>Type:</strong> {{ code_type }}</p>
+
+        <form action="/update" method="POST">
+            <input type="hidden" name="qr_code" value="{{ qr_code }}">
+            <label for="quantity">New Quantity:</label>
+            <input type="number" name="quantity" value="{{ quantity }}" required>
+            <button type="submit" name="action" value="update">Update</button>
+        </form>
+
+        <form action="/update" method="POST" style="margin-top: 10px;">
+            <input type="hidden" name="qr_code" value="{{ qr_code }}">
+            <button type="submit" name="action" value="increment">Increment</button>
+        </form>
+
+        <button class="back-button" onclick="window.location.href='/'">Back to Main Page</button>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

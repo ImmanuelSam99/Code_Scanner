@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scan QR Code</title>
+    <script src="{{ url_for('static', filename='js/qr-scanner.umd.min.js') }}"></script>
+</head>
+<body>
+    <h1>Scan QR Code</h1>
+    <video id="qr-video" style="width: 100%; max-width: 600px;"></video>
+
+    <script>
+        QrScanner.WORKER_PATH = "{{ url_for('static', filename='js/qr-scanner.worker.min.js') }}";
+
+        let scanner = new QrScanner(
+            document.getElementById('qr-video'),
+            async (result) => {
+                if (scanner.processing) return;
+                scanner.processing = true;
+
+                const qrCode = result.trim(); 
+                const encodedQRCode = encodeURIComponent(qrCode); 
+
+                const response = await fetch("/process_scan/qr", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: qrCode })
+                });
+
+                const res = await response.json();
+                if (res.status === "exists") {
+                    alert(`QR Code already exists. Quantity: ${res.quantity}\nRedirecting to update page...`);
+                    window.location.href = `/update_page/${encodedQRCode}`; 
+                } else if (res.status === "added") {
+                    alert("QR Code added successfully.");
+                    window.location.href = "/"; 
+                } else {
+                    alert("Error processing QR Code.");
+                }
+
+                scanner.processing = false;
+            }
+        );
+
+        scanner.start();
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

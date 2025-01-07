@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Scanner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        #video {
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 10px;
+        }
+        #canvas {
+            display: none;
+        }
+        .scan-frame {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 100px;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+        #recognized-text {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            text-align: left;
+        }
+        .highlight {
+            background-color: yellow;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin: 2px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h2>Text Scanner</h2>
+    <div id="error-message" class="error"></div>
+    <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="scan-frame"></div>
+        <canvas id="canvas"></canvas>
+    </div>
+    <div>
+        <button onclick="captureImage()">Capture Text</button>
+        <button onclick="window.location.href='/'">Back to Home</button>
+    </div>
+    <div id="recognized-text"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const errorMessage = document.getElementById('error-message');
+        const recognizedTextDiv = document.getElementById('recognized-text');
+        const scanFrame = document.querySelector('.scan-frame');
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+                video.srcObject = stream;
+                errorMessage.textContent = '';
+            } catch (error) {
+                console.error('Camera error:', error);
+                errorMessage.textContent = 'Unable to access camera. Please check permissions.';
+            }
+        }
+
+        window.addEventListener('load', initCamera);
+
+        function captureImage() {
+            const context = canvas.getContext('2d');
+            const videoRect = video.getBoundingClientRect();
+            const frameRect = scanFrame.getBoundingClientRect();
+            const scaleX = video.videoWidth / videoRect.width;
+            const scaleY = video.videoHeight / videoRect.height;
+            const frameX = (frameRect.left - videoRect.left) * scaleX;
+            const frameY = (frameRect.top - videoRect.top) * scaleY;
+            const frameWidth = frameRect.width * scaleX;
+            const frameHeight = frameRect.height * scaleY;
+
+            canvas.width = frameWidth;
+            canvas.height = frameHeight;
+
+            context.drawImage(video, 
+                frameX, frameY, frameWidth, frameHeight, 
+                0, 0, frameWidth, frameHeight
+            );
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+            fetch('/process_text_scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    errorMessage.textContent = data.message;
+                    return;
+                }
+
+                if (data.code) {
+                    const words = data.code.split(/\s+/);
+                    recognizedTextDiv.innerHTML = words.map(word => `<span class="highlight">${word}</span>`).join(' ');
+                }
+
+                return fetch('/process_scan/text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: data.code })
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'exists') {
+                    alert(`Code already exists. Redirecting to update page...`);
+                    window.location.href = data.redirect;
+                } else if (data.status === 'added') {
+                    alert("Code added successfully.");
+                    window.location.href = '/';
+                } else {
+                    errorMessage.textContent = data.message || 'Error processing scan.';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessage.textContent = 'Error processing image. Please try again.';
+            });
+        }
+    </script>
+</body>
+</html>
+
+
