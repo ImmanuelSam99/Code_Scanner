@@ -4,59 +4,289 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scan Barcode</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #barcode-video {
+            width: 80%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 3px solid #ddd;
+        }
+
+        .scanning #barcode-video {
+            border-color: #4CAF50;
+        }
+
+        .paused #barcode-video {
+            border-color: #FF9800;
+        }
+
+        .error #barcode-video {
+            border-color: #F44336;
+        }
+
+        #barcode-result {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+            min-height: 24px;
+        }
+
+        #scanner-status {
+            font-size: 16px;
+            margin-bottom: 20px;
+            min-height: 20px;
+        }
+
+        .status-scanning {
+            color: #4CAF50;
+        }
+
+        .status-paused {
+            color: #FF9800;
+        }
+
+        .status-error {
+            color: #F44336;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #f7f7f9;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #home-button {
+            background-color: #007bff;
+        }
+
+        #home-button:hover {
+            background-color: #0056b3;
+        }
+
+        #rescan-button {
+            background-color: #4CAF50;
+            display: none;
+        }
+
+        #rescan-button:hover {
+            background-color: #3e8e41;
+        }
+
+        .quantity-input {
+            margin: 15px 0;
+            display: none;
+        }
+
+        .quantity-input input {
+            padding: 8px;
+            width: 60px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .quantity-input button {
+            padding: 8px 15px;
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
     <h1>Scan Barcode</h1>
-    <div>
-        <video id="barcode-video" autoplay></video>
+    <div class="container" id="scanner-container">
+        <video id="barcode-video" autoplay playsinline></video>
         <p id="barcode-result">Scanned Barcode: <span id="scanned-barcode"></span></p>
-        <p id="scanner-status">Scanning...</p>
+        <p id="scanner-status" class="status-scanning">Scanning...</p>
+        
+        <div class="quantity-input" id="quantity-input">
+            <label for="quantity">Quantity:</label>
+            <input type="number" id="quantity" min="1" value="1">
+            <button id="submit-quantity">Submit</button>
+        </div>
+        
+        <div class="button-group">
+            <button id="home-button">Home</button>
+            <button id="rescan-button">Scan Again</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script>
         const codeReader = new ZXing.BrowserBarcodeReader();
-
         const videoElement = document.getElementById('barcode-video');
         const barcodeResult = document.getElementById('scanned-barcode');
         const scannerStatus = document.getElementById('scanner-status');
+        const scannerContainer = document.getElementById('scanner-container');
+        const homeButton = document.getElementById('home-button');
+        const rescanButton = document.getElementById('rescan-button');
+        const quantityInput = document.getElementById('quantity-input');
+        const quantityField = document.getElementById('quantity');
+        const submitQuantity = document.getElementById('submit-quantity');
 
-        codeReader.decodeFromVideoDevice(null, videoElement, async (result, err) => {
-            if (err) {
-                console.error(err);
-                scannerStatus.textContent = "Error accessing camera. Please ensure your camera is working.";
+        // Get user from URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const user = urlParams.get('user') || localStorage.getItem('selectedUser') || '';
+        let currentScan = null;
+
+        // Set scanner state
+        const setScannerState = (state) => {
+            scannerContainer.className = 'container';
+            scannerContainer.classList.add(state);
+            
+            scannerStatus.className = '';
+            scannerStatus.classList.add(`status-${state}`);
+            
+            if (state === 'scanning') {
+                scannerStatus.textContent = "Scanning...";
+                quantityInput.style.display = 'none';
+                rescanButton.style.display = 'none';
+                barcodeResult.textContent = '';
+            } else if (state === 'paused') {
+                scannerStatus.textContent = "Ready to submit";
+                quantityInput.style.display = 'block';
+                rescanButton.style.display = 'inline-block';
+            } else if (state === 'error') {
+                scannerStatus.textContent = "Error: " + (state.message || "Camera error");
+                rescanButton.style.display = 'inline-block';
+            }
+        };
+
+        // Start scanning
+        const startScanner = async () => {
+            setScannerState('scanning');
+            try {
+                await codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.error(err);
+                        setScannerState('error');
+                        return;
+                    }
+
+                    if (result && !currentScan) {
+                        currentScan = result.text.trim();
+                        barcodeResult.textContent = currentScan;
+                        setScannerState('paused');
+                        quantityField.focus();
+                    }
+                });
+            } catch (err) {
+                console.error("Scanner initialization failed:", err);
+                setScannerState('error');
+            }
+        };
+
+        // Stop scanning
+        const stopScanner = () => {
+            codeReader.reset();
+            currentScan = null;
+        };
+
+        // Submit scan to server
+        const submitScan = async () => {
+            const quantity = parseInt(quantityField.value);
+            if (isNaN(quantity)) {
+                alert("Please enter a valid quantity");
+                quantityField.focus();
                 return;
             }
 
-            if (result) {
-                const barcode = result.text.trim();
-                barcodeResult.textContent = barcode;
-
-                
-                const encodedBarcode = encodeURIComponent(barcode);
-
-                
+            try {
                 const response = await fetch("/process_scan/barcode", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: barcode })
+                    body: JSON.stringify({ 
+                        code: currentScan, 
+                        quantity: quantity,
+                        user: user 
+                    })
                 });
 
                 const res = await response.json();
+                console.log("Server Response:", res);
 
                 if (res.status === "exists") {
                     alert(`Barcode already exists. Quantity: ${res.quantity}. Redirecting to update page...`);
-                    window.location.href = `/update_page/${encodedBarcode}`;
+                    window.location.href = res.redirect;
                 } else if (res.status === "added") {
-                    alert("Barcode added successfully.");
-                    window.location.href = "/";
+                    alert("Barcode and quantity added successfully.");
+                    resetScanner();
                 } else {
-                    alert("Error processing barcode.");
+                    alert("Error processing barcode: " + (res.message || "Unknown error"));
+                    resetScanner();
                 }
+            } catch (error) {
+                console.error("Error sending data to server:", error);
+                alert("An error occurred while processing the barcode.");
+                resetScanner();
             }
+        };
+
+        // Reset scanner
+        const resetScanner = () => {
+            stopScanner();
+            startScanner();
+        };
+
+        // Event listeners
+        homeButton.addEventListener("click", () => {
+            stopScanner();
+            window.location.href = `/?user=${encodeURIComponent(user)}`;
+        });
+
+        rescanButton.addEventListener("click", resetScanner);
+
+        submitQuantity.addEventListener("click", submitScan);
+
+        quantityField.addEventListener("keypress", (e) => {
+            if (e.key === 'Enter') {
+                submitScan();
+            }
+        });
+
+        // Initialize scanner
+        startScanner();
+
+        // Clean up on page exit
+        window.addEventListener('beforeunload', () => {
+            stopScanner();
         });
     </script>
 </body>
 </html>
-
-

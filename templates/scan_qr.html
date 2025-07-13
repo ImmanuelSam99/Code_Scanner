@@ -1,76 +1,225 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scan QR Code</title>
+    <style>
+         body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #qr-video {
+            width: 80%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        #qr-result {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        #scanner-status {
+            font-size: 16px;
+            color: #777;
+            margin-bottom: 20px;
+        }
+
+        #home-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #home-button:hover {
+            background-color: #0056b3;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
     <script src="{{ url_for('static', filename='js/qr-scanner.umd.min.js') }}"></script>
 </head>
 <body>
     <h1>Scan QR Code</h1>
-    <video id="qr-video" style="width: 100%; max-width: 600px;"></video>
+    <div class="container">
+        <video id="qr-video" autoplay></video>
+        <p id="qr-result">Scanned QR Code: <span id="scanned-qr"></span></p>
+        <p id="scanner-status">Scanning...</p>
+        <div id="message" class="message"></div>
+        <button id="home-button">Home</button>
+    </div>
 
     <script>
         QrScanner.WORKER_PATH = "{{ url_for('static', filename='js/qr-scanner.worker.min.js') }}";
 
-        let scanner = new QrScanner(
-            document.getElementById('qr-video'),
-            async (result) => {
-                if (scanner.processing) return;
-                scanner.processing = true;
+        const videoElement = document.getElementById('qr-video');
+        const qrResult = document.getElementById('scanned-qr');
+        const scannerStatus = document.getElementById('scanner-status');
+        const homeButton = document.getElementById('home-button');
+        const messageElement = document.getElementById('message');
 
-                const qrCode = result.trim(); 
-                const encodedQRCode = encodeURIComponent(qrCode); 
+        let isScanning = true;
+        let promptActive = false;
 
-                const response = await fetch("/process_scan/qr", {
+        // Retrieve the user parameter from the URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const user = urlParams.get('user') || localStorage.getItem('selectedUser') || '';
+
+        const showMessage = (message, isSuccess) => {
+            messageElement.textContent = message;
+            messageElement.className = `message ${isSuccess ? 'success' : 'error'}`;
+            messageElement.style.display = 'block';
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, 3000);
+        };
+
+        const startScanning = () => {
+            scanner.start();
+            scannerStatus.textContent = "Scanning...";
+            qrResult.textContent = "";
+        };
+
+        const checkIfCodeExists = async (code) => {
+            try {
+                const response = await fetch("/check_code_exists", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: qrCode })
+                    body: JSON.stringify({ code: code, user: user })
                 });
+                return await response.json();
+            } catch (error) {
+                console.error("Error checking if code exists:", error);
+                return { exists: false, error: true };
+            }
+        };
 
-                const res = await response.json();
-                if (res.status === "exists") {
-                    alert(`QR Code already exists. Quantity: ${res.quantity}\nRedirecting to update page...`);
-                    window.location.href = `/update_page/${encodedQRCode}`; 
-                } else if (res.status === "added") {
-                    alert("QR Code added successfully.");
-                    window.location.href = "/"; 
-                } else {
-                    alert("Error processing QR Code.");
+        const scanner = new QrScanner(
+            videoElement,
+            async (result) => {
+                if (!isScanning || promptActive) return;
+
+                promptActive = true;
+                isScanning = false;
+                scanner.stop(); // Stop the scanner temporarily
+                scannerStatus.textContent = "Processing...";
+
+                const qrCode = result.trim();
+                qrResult.textContent = qrCode;
+
+                // First check if the code exists
+                const existsCheck = await checkIfCodeExists(qrCode);
+
+                if (existsCheck.error) {
+                    showMessage("Error checking if QR code exists. Please try again.", false);
+                    resetScannerAfterDelay(); 
+                    return;
                 }
 
-                scanner.processing = false;
+                if (existsCheck.exists) {
+                    showMessage(`QR Code already exists. Quantity: ${existsCheck.quantity}. Redirecting to update page...`, true);
+                    setTimeout(() => {
+                        window.location.href = existsCheck.redirect; 
+                    }, 2000); 
+                    return;
+                }
+
+                // Prompt for quantity
+                const quantity = prompt("Enter quantity for the scanned item:");
+
+                if (quantity === null || quantity.trim() === "" || isNaN(quantity)) {
+                    showMessage("No valid quantity entered. The data will not be saved.", false);
+                    resetScannerAfterDelay(); 
+                    return;
+                }
+
+                // Send the scan data to the backend
+                try {
+                    const response = await fetch("/process_scan/qr", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code: qrCode, quantity: parseInt(quantity, 10), user: user })
+                    });
+
+                    const res = await response.json();
+                    console.log("Server Response:", res);
+
+                    if (res.status === "added") {
+                        showMessage("QR Code and quantity added successfully.", true);
+                        resetScannerAfterDelay(); 
+                    } else {
+                        showMessage("Error processing QR Code.", false);
+                        resetScannerAfterDelay(); 
+                    }
+                } catch (error) {
+                    console.error("Error sending data to server:", error);
+                    showMessage("An error occurred while processing the QR Code.", false);
+                    resetScannerAfterDelay(); 
+                }
             }
         );
 
-        scanner.start();
+        const resetScannerAfterDelay = () => {
+            setTimeout(() => {
+                promptActive = false;
+                isScanning = true;
+                scanner.start(); 
+                scannerStatus.textContent = "Scanning...";
+                qrResult.textContent = ""; 
+            }, 3000); 
+        };
+
+        startScanning();
+
+        homeButton.addEventListener("click", () => {
+            window.location.href = "/";
+        });
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

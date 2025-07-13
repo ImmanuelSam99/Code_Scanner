@@ -6,11 +6,123 @@
     <title>Code Management Dashboard</title>
     <!-- Bootstrap 4 CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
+    <style>
+        .dashboard-header {
+            margin-bottom: 30px;
+        }
+        
+        .action-button {
+            border-radius: 4px;
+            font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
+            padding: 10px 16px;
+            font-size: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
 
-    <div class="container mt-5">
-        <h1 class="text-center mb-4">Code Database</h1>
+        .user-selection-buttons .d-flex {
+            gap: 20px; 
+        }
+        
+        /* For mobile, stack buttons */
+        @media (max-width: 767.98px) {
+            .button-container {
+                flex-direction: column;
+            }
+        }
+        
+        .scan-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        /* For mobile, adjust scan buttons */
+        @media (max-width: 767.98px) {
+            .scan-buttons {
+                flex-wrap: wrap;
+            }
+            
+            .scan-buttons a {
+                flex: 1 0 calc(50% - 10px);
+                min-width: calc(50% - 10px);
+            }
+        }
+        
+        .table-actions {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .table-actions .btn {
+            padding: 4px 12px;
+        }
+
+        /* Custom button colors */
+        .btn-user1 {
+            background-color: #FF5733; /* Orange */
+            border-color: #FF5733;
+            color: white; /* Text color */
+        }
+
+        .btn-user1:hover {
+            background-color: #e23517; /* Darker orange on hover */
+            border-color: #E64A2E;
+        }
+
+        .btn-user2 {
+            background-color: #e62e96; /* Blue */
+            border-color: #e62e96;
+            color: white; /* Text color */
+        }
+
+        .btn-user2:hover {
+            background-color: #e62e96; /* Darker blue on hover */
+            border-color: #e62e96;
+        }
+
+        .user-selection-buttons .btn {
+            margin: 0 10px; /* Adjust spacing between buttons */
+        }
+
+        .user-selection-buttons .btn.active {
+            background-color: #4CAF50; /* Green */
+            border-color: #4CAF50;
+            color: white;
+        }
+        
+        .table th, .table td {
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .disabled {
+         opacity: 0.5;
+         pointer-events: none; /* Disable click events */
+         cursor: not-allowed; /* Show not-allowed cursor */
+        }
+    </style>
+</head>
+<body style="background-color:#f8f9fa;">
+
+    <div class="container py-4">
+        <div class="dashboard-header">
+            <h1 class="text-center">Code Database</h1>
+        </div>
         
         <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -25,46 +137,73 @@
                 </div>
             {% endif %}
         {% endwith %}
-        
-        <!-- Download CSV button -->
-        <div class="text-center mb-4">
-            <a href="/download_csv" class="btn btn-info btn-lg mx-2">Download CSV</a>
+
+        <!-- Management buttons in one row -->
+        <div class="button-container">
+            <form action="{{ url_for('delete_all') }}" method="POST" class="w-100" onsubmit="return confirm('Are you sure you want to delete all data? Backup will be saved');">
+                <button type="submit" class="btn btn-danger action-button w-100">Delete All Entries</button>
+            </form>
+            
+            <a href="/download_csv" class="btn btn-info action-button w-100">Download CSV</a>
         </div>
 
-        <!-- Scan buttons -->
-        <div class="text-center mb-4">
-            <a href="/scan/qr" class="btn btn-primary btn-lg mx-2">Scan QR Code</a>
-            <a href="/scan/barcode" class="btn btn-success btn-lg mx-2">Scan Barcode</a>
-            <a href="/scan/text" class="btn btn-warning btn-lg mx-2">Scan Text</a>
+        <!-- Scan buttons-->
+        <div class="scan-buttons" id="scanButtonsContainer">
+            <a href="/scan/qr" class="btn btn-primary action-button flex-fill">Scan QR Code</a>
+            <a href="/scan/barcode" class="btn btn-success action-button flex-fill">Scan Barcode</a>
+            <a href="/scan/text" class="btn btn-warning action-button flex-fill">Scan Text</a>
+         </div>
+
+        <div id="scan-message" class="alert alert-warning" style="display: none;">
+           Please select a user to start scanning.
+        </div>
+
+        <!-- User selection buttons -->
+        <div class="user-selection-buttons mb-4">
+            <h3 class="text-center mb-3">Select User</h3>
+            <div class="d-flex justify-content-center gap-3">
+                <button id="user1-btn" class="btn btn-user1 action-button" onclick="selectUser('User 1')">User 1</button>
+                <button id="user2-btn" class="btn btn-user2 action-button" onclick="selectUser('User 2')">User 2</button>
+                <button id="all-users-btn" class="btn btn-secondary action-button" onclick="selectUser('')">All Users</button>
+            </div>
+        </div>
+
+        <div class="selected-user mt-4 text-center">
+            <h4 id="selectedUserText">Select User: none</h4>
         </div>
 
         <!-- Table to display records -->
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped">
+        <div class="table-responsive bg-white rounded shadow-sm">
+            <table class="table table-striped mb-0">
                 <thead class="thead-dark">
                     <tr>
                         <th>Serial Number</th>
                         <th>Code</th>
                         <th>Type</th>
                         <th>Quantity</th>
+                        <th>Material</th>
+                        <th>Description</th>
+                        <th>Added By</th> 
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="recordsTableBody">
                     {% for record in records %}
                         <tr>
                             <td>{{ record['Serial Number'] }}</td>
                             <td>{{ record['Code'] }}</td>
                             <td>{{ record['Type'] }}</td>
                             <td>{{ record['Quantity'] }}</td>
+                            <td>{{ record['Material'] }}</td>
+                            <td>{{ record['Description'] }}</td>
+                            <td>{{ record['Added By'] }}</td>
                             <td>
-                                <!-- Update button -->
-                                <a href="/update_page/{{ record['Code'] | urlencode }}" class="btn btn-warning btn-sm">Update</a>
-                                
-                                <!-- Delete button -->
-                                <form action="/delete/{{ record['Code'] | urlencode }}" method="POST" style="display:inline;">
-                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                </form>
+                                <div class="table-actions">
+                                    <a href="/update_page/{{ record['Code'] | urlencode }}" class="btn btn-sm btn-warning" role="button">Update</a>
+                                    <form action="/delete/{{ record['Code'] | urlencode }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}
@@ -74,49 +213,125 @@
     </div>
 
     <!-- Bootstrap JS and dependencies -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.5/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+    let selectedUser = "";
+
+    // Function to update scan button URLs with user parameter
+    function updateScanButtons(user) {
+        const scanButtons = document.querySelectorAll('#scanButtonsContainer a');
+        scanButtons.forEach(button => {
+            const baseUrl = button.href.split('?')[0];
+            button.href = `${baseUrl}?user=${encodeURIComponent(user)}`;
+        });
+    }
+
+    // Function to fetch and display records for the selected user
+    function fetchUserRecords(user) {
+        fetch(`/scans?user=${encodeURIComponent(user)}`)
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('recordsTableBody');
+                tableBody.innerHTML = ''; // Clear the table
+
+                // Populate the table with the filtered data
+                data.forEach(record => {
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>${record['Serial Number']}</td>
+                        <td>${record['Code']}</td>
+                        <td>${record['Type']}</td>
+                        <td>${record['Quantity']}</td>
+                        <td>${record['Material'] || ''}</td>
+                        <td>${record['Description'] || ''}</td>
+                        <td>${record['Added By']}</td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="/update_page/${encodeURIComponent(record['Code'])}" class="btn btn-sm btn-warning" role="button">Update</a>
+                                <form action="/delete/${encodeURIComponent(record['Code'])}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(newRow);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching records:', error);
+            });
+    }
+
+    // Function to handle user selection
+    function selectUser(user) {
+    selectedUser = user;
+    localStorage.setItem("selectedUser", user); // Save to localStorage
+
+    // Update UI to show active user
+    document.querySelectorAll('.user-selection-buttons .btn').forEach(button => {
+        button.classList.remove('active');
+    });
+
+    // Set active button
+    if (user === 'User 1') {
+        document.getElementById('user1-btn').classList.add('active');
+    } else if (user === 'User 2') {
+        document.getElementById('user2-btn').classList.add('active');
+    } else {
+        document.getElementById('all-users-btn').classList.add('active');
+    }
+
+    const scanButtons = document.querySelectorAll('#scanButtonsContainer a');
+    const scanMessage = document.getElementById('scan-message');
+
+    if (user === '') {
+        // If "All Users" is selected, disable scan buttons and show message
+        scanButtons.forEach(button => {
+            button.classList.add('disabled');
+            button.onclick = (e) => {
+                e.preventDefault(); // Prevent the default action
+                scanMessage.textContent = "Please select a user to start scanning.";
+                scanMessage.style.display = 'block';
+            };
+        });
+    } else {
+        // If a specific user is selected, enable scan buttons and hide message
+        scanButtons.forEach(button => {
+            button.classList.remove('disabled');
+            button.onclick = null; // Remove the custom onclick handler
+        });
+        scanMessage.style.display = 'none';
+    }
+
+    // Update scan button URLs to include user parameter
+    updateScanButtons(user);
+
+    // Fetch and display records for the selected user
+    fetchUserRecords(user);
+
+    // Update the selected user text
+    const selectedUserTextElement = document.getElementById('selectedUserText');
+    selectedUserTextElement.textContent = user ? `Selected User: ${user}` : 'Selected User: All Users';
+}
+    // Initialize on page load
+    window.onload = function () {
+    // Get current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const userParam = urlParams.get('user');
+
+    // Try to get stored user
+    let storedUser = localStorage.getItem("selectedUser");
+
+    // Decide which user to show
+    let userToShow = userParam || storedUser || "";
+
+    // Select the user
+    selectUser(userToShow);
+};
+    </script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -47,6 +47,12 @@
         .back-button:hover {
             background-color: #5a6268;
         }
+        .increment-button {
+            background-color: #28a745; 
+        }
+        .increment-button:hover {
+            background-color: #218838; 
+        }
     </style>
 </head>
 <body>
@@ -56,58 +62,23 @@
         <p><strong>Current Quantity:</strong> {{ quantity }}</p>
         <p><strong>Type:</strong> {{ code_type }}</p>
 
+        <!-- Form to update quantity -->
         <form action="/update" method="POST">
             <input type="hidden" name="qr_code" value="{{ qr_code }}">
+            <input type="hidden" name="scan_type" value="{{ code_type }}">
             <label for="quantity">New Quantity:</label>
-            <input type="number" name="quantity" value="{{ quantity }}" required>
+            <input type="number" name="quantity" value="{{ quantity }}" min="0" required>
             <button type="submit" name="action" value="update">Update</button>
         </form>
 
+        <!-- Form to increment quantity -->
         <form action="/update" method="POST" style="margin-top: 10px;">
             <input type="hidden" name="qr_code" value="{{ qr_code }}">
-            <button type="submit" name="action" value="increment">Increment</button>
+            <button type="submit" name="action" value="increment" class="increment-button" onclick="return confirm('Are you sure you want to increment the quantity?');">Increment</button>
         </form>
 
+        <!-- Back button -->
         <button class="back-button" onclick="window.location.href='/'">Back to Main Page</button>
     </div>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

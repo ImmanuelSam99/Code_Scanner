@@ -4,82 +4,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Text Scanner</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            text-align: center;
-        }
-        .camera-container {
-            position: relative;
-            width: 100%;
-            max-width: 640px;
-            margin: 0 auto;
-        }
-        #video {
-            width: 100%;
-            max-width: 640px;
-            margin-bottom: 10px;
-        }
-        #canvas {
-            display: none;
-        }
-        .scan-frame {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 300px;
-            height: 100px;
-            border: 2px solid #4CAF50;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-            z-index: 10;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .error {
-            color: red;
-            margin: 10px 0;
-        }
-        #recognized-text {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-            text-align: left;
-        }
-        .highlight {
-            background-color: yellow;
-            padding: 2px 5px;
-            border-radius: 3px;
-            margin: 2px;
-            display: inline-block;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/scan_text.css') }}">
+
 </head>
 <body>
     <h2>Text Scanner</h2>
+    <div class="top-button-container">
+        <button onclick="window.location.href='/'">Home</button>
+    </div>
     <div id="error-message" class="error"></div>
+
+    <div id="recognized-text"></div>
+
     <div class="camera-container">
+        <div class="scanned-item-info" id="scanned-item-info" style="visibility:hidden"></div>
         <video id="video" autoplay playsinline></video>
         <div class="scan-frame"></div>
         <canvas id="canvas"></canvas>
     </div>
-    <div>
-        <button onclick="captureImage()">Capture Text</button>
-        <button onclick="window.location.href='/'">Back to Home</button>
+
+    <div class="button-container">
+        <button class="capture" onclick="captureImage()">Capture Text</button>
     </div>
-    <div id="recognized-text"></div>
+
+    <!-- Quantity Input Modal -->
+
+    <div class="modal-overlay" id="quantityModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Enter Details</div>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Code Field (editable) -->
+                <div class="form-group">
+                    <label for="codeInput">Code:</label>
+                    <input type="text" id="codeInput" class="form-control">
+                </div>
+                
+                <!-- Material Field (auto-preview) -->
+                <div class="form-group">
+                    <label for="materialPreview">Material:</label>
+                    <div id="materialPreview" class="material-preview">OMF1-<span id="materialCodePart"></span></div>
+                </div>
+                
+                <!-- Description Field (user editable) -->
+                <div class="form-group">
+                    <label for="descriptionInput">Description:</label>
+                    <input type="text" id="descriptionInput" class="form-control" placeholder="Enter description">
+                </div>
+                
+                <!-- Quantity Field -->
+                <div class="form-group">
+                    <label for="quantityInput">Quantity:</label>
+                    <input type="number" id="quantityInput" min="1" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button cancel-button" onclick="closeModal()">Cancel</button>
+                <button class="modal-button confirm-button" onclick="submitQuantity()">Submit</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         const video = document.getElementById('video');
@@ -87,10 +74,21 @@
         const errorMessage = document.getElementById('error-message');
         const recognizedTextDiv = document.getElementById('recognized-text');
         const scanFrame = document.querySelector('.scan-frame');
+        const scannedItemInfo = document.getElementById('scanned-item-info');
+        const quantityModal = document.getElementById('quantityModal');
+        const quantityInput = document.getElementById('quantityInput');
+        
+        let scanInProgress = false;
+        let stream = null;
+        let currentScanData = null;
 
         async function initCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment' },
                     audio: false
                 });
@@ -104,12 +102,190 @@
 
         window.addEventListener('load', initCamera);
 
+        function resetScanUI() {
+            scanFrame.style.borderColor = "#f48301";
+            recognizedTextDiv.innerHTML = '';
+            scannedItemInfo.innerHTML = '';
+            scanInProgress = false;
+        }
+
+
+
+
+        function showModal() {
+    quantityModal.style.display = 'flex';
+    
+    const codeInput = document.getElementById('codeInput');
+    const materialCodePart = document.getElementById('materialCodePart');
+    const descriptionInput = document.getElementById('descriptionInput');
+    
+    codeInput.value = currentScanData.code || '';
+    materialCodePart.textContent = codeInput.value.replace('OMF1-', '');
+    descriptionInput.value = currentScanData.description || '';
+    
+    // Update material preview when code changes
+    codeInput.addEventListener('input', function() {
+        materialCodePart.textContent = this.value.replace('OMF1-', '');
+    });
+    
+    quantityInput.focus();
+}
+
+
+
+       
+
+        function closeModal() {
+            quantityModal.style.display = 'none';
+            quantityInput.value = '';
+            resetScanUI();
+            initCamera();
+        }
+
+        function showManualCode() {
+            document.getElementById('manualCodeContainer').style.display = 'block';
+            document.getElementById('manualCodeInput').focus();
+            document.getElementById('manualCodeBtn').style.display = 'none';
+        }
+
+        function hideManualCode() {
+            document.getElementById('manualCodeContainer').style.display = 'none';
+            document.getElementById('manualCodeBtn').style.display = 'inline-block';
+            document.getElementById('manualCodeInput').value = '';
+        }
+
+        function validateManualCode() {
+            const manualCode = document.getElementById('manualCodeInput').value.trim();
+            if (!manualCode) {
+                alert("Please enter a code");
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const selectedUser = urlParams.get('user') || "Unknown";
+
+            fetch('/check_code_exists', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    code: manualCode, 
+                    user: selectedUser 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    // Update the UI with the manually entered code
+                    currentScanData = {
+                        code: manualCode,
+                        material: data.material || null,
+                        description: data.description || null
+                    };
+
+                    // Update the scanned item info display
+                    updateScannedItemInfo(manualCode, data.material, data.description);
+                    
+                    // Hide manual input and show success
+                    hideManualCode();
+                    alert("Code validated successfully!");
+                } else {
+                    alert("Code not found in database");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error validating code. Please try again.');
+            });
+        }
+
+        function updateScannedItemInfo(code, material, description) {
+            const scannedItemInfo = document.getElementById('scanned-item-info');
+            if (material && description) {
+                scannedItemInfo.innerHTML = `
+                    <div><strong>Code:</strong> ${code}</div>
+                    <div><strong>Material:</strong> ${material}</div>
+                    <div><strong>Description:</strong> ${description}</div>
+                `;
+            } else {
+                scannedItemInfo.innerHTML = `
+                    <div><strong>Code:</strong> ${code}</div>
+                    <div>Additional details not available</div>
+                `;
+            }
+        }
+
+
+
+// Update submitQuantity()
+
+function submitQuantity() {
+    const code = document.getElementById('codeInput').value.trim();
+    const description = document.getElementById('descriptionInput').value.trim();
+    const quantity = document.getElementById('quantityInput').value;
+    
+    if (!code) {
+        alert("Code cannot be empty");
+        return;
+    }
+    
+    if (!description) {
+        alert("Please enter a description");
+        return;
+    }
+    
+    if (!quantity || isNaN(quantity) || parseInt(quantity) < 1) {
+        alert("Please enter a valid quantity (minimum 1)");
+        return;
+    }
+    
+    // Auto-generate material with OMF1- prefix
+    const material = 'OMF1-' + code.replace('OMF1-', '');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const selectedUser = urlParams.get('user') || "Unknown";
+    
+    fetch('/process_scan/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            code: code,
+            material: material,  // Auto-generated with OMF1- prefix
+            description: description,
+            quantity: parseInt(quantity),
+            user: selectedUser
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "added") {
+            alert("Entry saved successfully!");
+            closeModal();
+        } else {
+            alert("Error: " + (data.message || "Failed to save"));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving data. Please try again.');
+    });
+}
+
         function captureImage() {
+            if (scanInProgress) return;
+            scanInProgress = true;
+
+            scanFrame.style.borderColor = "#FFA500";
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const selectedUser = urlParams.get('user') || "Unknown";
+
             const context = canvas.getContext('2d');
             const videoRect = video.getBoundingClientRect();
             const frameRect = scanFrame.getBoundingClientRect();
+
             const scaleX = video.videoWidth / videoRect.width;
             const scaleY = video.videoHeight / videoRect.height;
+
             const frameX = (frameRect.left - videoRect.left) * scaleX;
             const frameY = (frameRect.top - videoRect.top) * scaleY;
             const frameWidth = frameRect.width * scaleX;
@@ -118,55 +294,88 @@
             canvas.width = frameWidth;
             canvas.height = frameHeight;
 
-            context.drawImage(video, 
+            context.drawImage(
+                video,
                 frameX, frameY, frameWidth, frameHeight, 
-                0, 0, frameWidth, frameHeight
+                0, 0, frameWidth, frameHeight 
             );
+
+            errorMessage.textContent = 'Scanning text inside orange boundary...';
 
             const imageData = canvas.toDataURL('image/jpeg', 0.8);
 
             fetch('/process_text_scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData })
+                body: JSON.stringify({ 
+                    image: imageData,
+                    user: selectedUser 
+                })
             })
             .then(response => response.json())
             .then(data => {
+                scanFrame.style.borderColor = "#4CAF50"; 
+                errorMessage.textContent = '';
+
                 if (data.status === 'error') {
                     errorMessage.textContent = data.message;
+                    resetScanUI();
+                    initCamera();
                     return;
                 }
 
                 if (data.code) {
                     const words = data.code.split(/\s+/);
                     recognizedTextDiv.innerHTML = words.map(word => `<span class="highlight">${word}</span>`).join(' ');
-                }
 
-                return fetch('/process_scan/text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: data.code })
-                });
+                    if (data.material && data.description) {
+                        scannedItemInfo.innerHTML = `
+                            <div><strong>Code:</strong> ${data.code}</div>
+                            <div><strong>Material:</strong> ${data.material}</div>
+                            <div><strong>Description:</strong> ${data.description}</div>
+                        `;
+                    }
+                    
+                    currentScanData = data;
+                    
+                    return fetch('/check_code_exists', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: data.code, user: selectedUser })
+                    });
+                }
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'exists') {
-                    alert(`Code already exists. Redirecting to update page...`);
-                    window.location.href = data.redirect;
-                } else if (data.status === 'added') {
-                    alert("Code added successfully.");
-                    window.location.href = '/';
+            .then(response => {
+                if (!response) {
+                    scanInProgress = false;
+                    return;
+                }
+                return response.json();
+            })
+            .then(existsData => {
+                if (!existsData) return;
+                
+                if (existsData.exists) {
+                    alert("Code already exists! Redirecting to update page.");
+                    window.location.href = existsData.redirect;
                 } else {
-                    errorMessage.textContent = data.message || 'Error processing scan.';
+                    showModal();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 errorMessage.textContent = 'Error processing image. Please try again.';
+                resetScanUI();
+                initCamera();
             });
         }
+
+        // Handle Enter key in quantity input
+        quantityInput.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                submitQuantity();
+            }
+        });
     </script>
 </body>
 </html>
-
-
